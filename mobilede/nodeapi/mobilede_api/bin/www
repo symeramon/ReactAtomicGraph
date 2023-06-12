@@ -1,0 +1,81 @@
+const express = require("express");
+const { ApolloServer, gql } = require("apollo-server-express");
+const http = require("http");
+const { ApolloServerPluginDrainHttpServer } = require('apollo-server-core');
+const fs = require('fs');
+
+async function startApolloServer() {
+  const app = express();
+
+  const httpServer = http.createServer(app);
+
+  const server = new ApolloServer({
+    introspection: true,
+    typeDefs: gql`
+      scalar JSON
+
+    type listdata {
+      id: [Int!],
+    text: String,
+    pic:String
+    }
+    type Query {
+      
+      filters(input: String, filtersi: JSON): [listdata],
+      ListData:[listdata]
+    }
+  `,
+    resolvers: {
+      Query: {
+        filters: async  (_,{input, filtersi}) => {
+          
+
+          var data = fs.readFileSync(process.cwd() + '/data/ListData.json');
+          var list = JSON.parse(data);
+
+          const filteredData = list.filter((el) => {
+            if (filtersi.filtreler != null) {
+
+              if (filtersi.filtreler.length > 0 && input === "") {
+                console.log("xcxcxeeeeeec" + JSON.stringify(filtersi))
+
+                return el.id.some(r => filtersi.filtreler.includes(r));
+              }
+              else if (filtersi.filtreler.length > 0) {
+                console.log("ddddddd" + JSON.stringify(filtersi))
+
+                return el.text.toLowerCase().includes(input) && el.id.some(r => filtersi.filtreler.includes(r))
+              }
+            }
+            console.log(input)
+
+             if (input === "" || input === undefined) {
+
+              return el;
+            }
+          
+            else {
+              return el.text.toLowerCase().includes(input)
+            }
+
+          })
+          return filteredData;
+        },
+        ListData: () => {
+          var data = fs.readFileSync(process.cwd() + '/data/ListData.json');
+          var myObject = JSON.parse(data);
+          return myObject;
+        }
+      },
+    },
+    playground: true,
+    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })]
+  });
+
+  await server.start();
+
+  server.applyMiddleware({ app });
+
+  await new Promise(resolve => httpServer.listen({ port: 4000 }, resolve));
+}
+startApolloServer();
